@@ -33,6 +33,7 @@ def onestep(player, env):
         env.board = place_stone(board, mpos, stone_type)        
         
 
+
 def tran(player, env, n=100):
     def train1(player, env):
         board = env.board
