@@ -34,6 +34,7 @@ def onestep(player, env):
         
 
 
+
 def tran(player, env, n=100):
     def train1(player, env):
         board = env.board
