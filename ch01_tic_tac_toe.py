@@ -67,6 +67,37 @@ class Player:
         self.stone_type = stone_type 
         self.valfn = gen_init_valfn(stone_type)
 
+
 class Env:
     def __init__(self):
         self.board = gen_board() 
+
+
+def chunks(lst, n):
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+class Board:
+    """board pos starts from 0 to 8
+    0 1 2
+    3 4 5 
+    6 7 8 
+    """
+    def __init__(self):
+        self.board = list(".........")
+
+    def place_stone(self, pos, ox):
+        self.board[pos] = ox
+
+    def show(self):
+        print()
+        for line in chunks(self.board, 3):
+            print(" ".join(line))
+
+
+b = Board()
+b.show()
+b.place_stone(2, 'o')
+b.place_stone(3, 'x')
+
+b.show()
