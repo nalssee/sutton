@@ -88,26 +88,32 @@ def update_const(qstars, pos, reward, alpha=0.1):
 
 
 # %%
-from multiprocessing import Pool 
+
+# took 24 mins
+
+from multiprocessing import Pool
+
 
 def worker1(epsilon):
     return bandit(epsilon, steps=10_000, update_method="sample_mean")
 
+
 def worker2(epsilon):
     return bandit(epsilon, steps=10_000, update_method="const", alpha=0.1)
-    
-    
+
+
 with Pool() as pool:
     epsilons = [0.1, 0.01, 0]
-    result1 = pool.map(worker1, epsilons) 
+    result1 = pool.map(worker1, epsilons)
     result2 = pool.map(worker2, epsilons)
 
 
 # %%
 
+
 def plot1(results):
     fig, ax = plt.subplots(figsize=(10, 5))
-    xs = range(1, len(avg_rewards01) + 1)
+    xs = range(1, len(results[0][0]) + 1)
 
     ax.plot(xs, results[0][0], label="epsilon=0.1")
     ax.plot(xs, results[1][0], label="epsilon=0.01")
@@ -117,28 +123,31 @@ def plot1(results):
     ax.set_ylabel("Avg Reward")
     plt.show()
 
-plot1(results1)
 
-plot1(results2)
+plot1(result1)
+
+plot1(result2)
+
 
 #
 # %%
-def plot2():
+def plot2(result):
     fig, ax = plt.subplots(figsize=(10, 5))
-    xs = range(1, len(avg_rewards01) + 1)
+    xs = range(1, len(result[0][1]) + 1)
 
-    ax.plot(xs, optimal_actions01, label="epsilon=0.1")
-    ax.plot(xs, optimal_actions001, label="epsilon=0.01")
-    ax.plot(xs, optimal_actions0, label="epsilon=0")
+    ax.plot(xs, result[0][1], label="epsilon=0.1")
+    ax.plot(xs, result[1][1], label="epsilon=0.01")
+    ax.plot(xs, result[2][1], label="epsilon=0")
     ax.legend(loc="lower right")
     ax.set_xlabel("Steps")
     ax.set_ylabel("Optimal Actions")
     plt.show()
 
 
-plot2()
+plot2(result1)
+
+plot2(result2)
+
 
 #
-# %%
-print(optimal_actions3)
 # %%
