@@ -1,22 +1,46 @@
+from dataclasses import dataclass
 from itertools import product
+
 import numpy as np
 from scipy.stats import poisson
+import matplotlib.pyplot as plt
+
+GAMMA = 0.9
 
 
-GAMMA = 1
-REQLAMBDA1 = 3
-RETLAMBDA1 = 3
-REQLAMBDA2 = 4
-RETLAMBDA2 = 2
+@dataclass(frozen=True)
+class Transition:
+    req: int
+    ret: int
+    prob: float
 
 
-def rent():
+def build_transition_table(req_lambda, ret_lambda):
+    def transition_seq(n_of_morning_cars):
+        for req in range(n_of_morning_cars + 1):
+            p1 = poisson.pmf(req, req_lambda)
+            ret = 0
+            while True:
+                p2 = poisson.pmf(ret, ret_lambda)
+                if p2 < 0.0001 or (n_of_morning_cars - req + ret) > 20:
+                    break
+                yield Transition(req, ret, p1 * p2)
+                ret += 1
+
+    return [list(transition_seq(i)) for i in range(26)]
+
+
+transition_table1 = build_transition_table(3, 3)
+transition_table2 = build_transition_table(4, 2)
+
+
+def example0402():
     V = np.zeros((21, 21))
     policy = np.zeros((21, 21), dtype=int)
 
     while True:
         policy_evaluation(V, policy)
-
+        print("policy eval done")
         if not update_policy(V, policy):
             break
     return V, policy
@@ -29,40 +53,40 @@ def policy_evaluation(V, policy):
         for i, j in product(range(21), range(21)):
             v = V[i, j]
             action = policy[i, j]
-
             V[i, j] = qval((i, j), action, V)
             delta = max(delta, abs(V[i, j] - v))
-        if delta < 0.001:
+        if delta < 0.00001:
             return V
-
-
-def req_ret_prob(i0, l1, l2):
-    for req in range(i0 + 1):
-        p1 = poisson.pmf(req, l1)
-        ret = 0
-        while True:
-            p2 = poisson.pmf(ret, l2)
-            yield (req, ret, p1 * p2)
-            if p2 < 0.0001:
-                break
 
 
 def update_policy(V, policy):
     "returns True if updated, False otherwise"
+
+    def qval1(i, j):
+        def func(action):
+            return qval((i, j), action, V)
+
+        return func
+
+    update_done = False
     for i, j in product(range(21), range(21)):
         old_action = policy[i, j]
         actions = possible_actions(i, j)
-        # argmax
-        best_action_value, best_action = 0, 0
-        for action in actions:
-            aval = qval((i, j), action, V)
-            if aval > best_action_value:
-                best_action_value, best_action = aval, action
+        _, best_action = max_argmax(qval1(i, j), actions)
 
         if old_action != best_action:
             policy[i, j] = best_action
-            return True
-    return False
+            update_done = True
+    return update_done
+
+
+def max_argmax(func, seq):
+    maxval, maxelt = func(seq[0]), seq[0]
+    for x in seq[1:]:
+        newval = func(x)
+        if newval > maxval:
+            maxval, maxelt = newval, x
+    return maxval, maxelt
 
 
 def possible_actions(i, j):
@@ -73,28 +97,39 @@ def possible_actions(i, j):
     return actions
 
 
+# action value from value function (arrays actually)
 def qval(state, action, V):
     i, j = state
     newval = 0
-    for rrp1, rrp2 in product(
-        req_ret_prob(i - action, REQLAMBDA1, RETLAMBDA1),
-        req_ret_prob(j + action, REQLAMBDA2, RETLAMBDA2),
-    ):
-        req1, ret1, prob1 = rrp1
-        req2, ret2, prob2 = rrp2
-        reward = (req1 + req2) * 10 - action * 2
-        i1, j1 = (i - action - req1 + ret1), (j + action - req2 + ret2)
-        newval += prob1 * prob2 * (reward + GAMMA * V[i1, j1])
-
+    for t1, t2 in product(transition_table1[i - action], transition_table2[j + action]):
+        reward = (t1.req + t2.req) * 10 - abs(action) * 2
+        i1, j1 = (i - action - t1.req + t1.ret), (j + action - t2.req + t2.ret)
+        newval += t1.prob * t2.prob * (reward + GAMMA * V[i1, j1])
     return newval
 
 
-V = np.zeros((21, 21))
-policy = np.zeros((21, 21), dtype=int)
+def show_policy(policy):
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    cmap = plt.cm.get_cmap("RdBu_r", 11)  # 11 levels for -5 to 5
+
+    mesh = ax.pcolormesh(policy, cmap=cmap, vmin=-5.5, vmax=5.5)
+
+    ax.set_xticks(np.arange(0, 21, 1))
+    ax.set_yticks(np.arange(0, 21, 1))
+    ax.grid(True, which="major", color="k", linestyle="-", linewidth=0.5)
+
+    ax.set_title("20x20 Discrete Matrix Plot")
+    ax.set_xlabel("X-axis")
+    ax.set_ylabel("Y-axis")
+
+    cbar = fig.colorbar(mesh, ticks=range(-5, 6))
+    cbar.set_label("Value")
+
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
-    # print(float(poisson(3, 3)))
-    # print(qval((10, 14), 3, V))
-    # print(rent())
-    print("hello")
+    V, policy = example0402()
+    show_policy(policy)
