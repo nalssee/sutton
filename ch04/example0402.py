@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from itertools import product
 
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import poisson
-import matplotlib.pyplot as plt
 
 GAMMA = 0.9
 
@@ -19,6 +19,8 @@ def build_transition_table(req_lambda, ret_lambda):
     def transition_seq(n_of_morning_cars):
         for req in range(n_of_morning_cars + 1):
             p1 = poisson.pmf(req, req_lambda)
+            if p1 < 0.000001:
+                break
             ret = 0
             while True:
                 p2 = poisson.pmf(ret, ret_lambda)
@@ -39,8 +41,8 @@ def example0402():
     policy = np.zeros((21, 21), dtype=int)
 
     while True:
+        show_policy(policy)
         policy_evaluation(V, policy)
-        print("policy eval done")
         if not update_policy(V, policy):
             break
     return V, policy
@@ -61,32 +63,22 @@ def policy_evaluation(V, policy):
 
 def update_policy(V, policy):
     "returns True if updated, False otherwise"
-
-    def qval1(i, j):
-        def func(action):
-            return qval((i, j), action, V)
-
-        return func
-
     update_done = False
     for i, j in product(range(21), range(21)):
         old_action = policy[i, j]
-        actions = possible_actions(i, j)
-        _, best_action = max_argmax(qval1(i, j), actions)
+
+        # best_action
+        maxval, best_action = float('-inf'), None 
+        for action in possible_actions(i, j):
+            newval = qval((i, j), action, V)
+            if newval > maxval:
+                maxval, best_action = newval, action
 
         if old_action != best_action:
             policy[i, j] = best_action
             update_done = True
     return update_done
 
-
-def max_argmax(func, seq):
-    maxval, maxelt = func(seq[0]), seq[0]
-    for x in seq[1:]:
-        newval = func(x)
-        if newval > maxval:
-            maxval, maxelt = newval, x
-    return maxval, maxelt
 
 
 def possible_actions(i, j):
@@ -100,9 +92,9 @@ def possible_actions(i, j):
 # action value from value function (arrays actually)
 def qval(state, action, V):
     i, j = state
-    newval = 0
+    newval = -2 * abs(action)
     for t1, t2 in product(transition_table1[i - action], transition_table2[j + action]):
-        reward = (t1.req + t2.req) * 10 - abs(action) * 2
+        reward = (t1.req + t2.req) * 10
         i1, j1 = (i - action - t1.req + t1.ret), (j + action - t2.req + t2.ret)
         newval += t1.prob * t2.prob * (reward + GAMMA * V[i1, j1])
     return newval
@@ -131,5 +123,5 @@ def show_policy(policy):
 
 
 if __name__ == "__main__":
-    V, policy = example0402()
-    show_policy(policy)
+    example0402()
+    # print(poisson.pmf(18, 4))
